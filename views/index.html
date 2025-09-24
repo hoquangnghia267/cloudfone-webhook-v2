@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Call Events Viewer</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/js/extNames.js"></script>
+  <script src="/js/index.js" defer></script>
+</head>
+<body>
+  <h1>Sự kiện cuộc gọi từ CloudFone (Realtime)</h1>
+
+  <div class="controls">
+    <label>Lọc theo trạng thái:</label>
+    <select id="filter">
+      <option value="all">🌐 Tất cả</option>
+      <option value="answered">📞 Đã nhấc máy</option>
+      <option value="not-answered">🔔 Không bắt máy</option>
+      <option value="missed">❌ Cuộc gọi nhỡ</option>
+      <option value="inbound">📥 Gọi đến</option>
+      <option value="outbound">📤 Gọi đi</option>
+      <option value="internal">🏢 Nội bộ</option>
+      <option value="unknown">❓ Không rõ</option>
+    </select>
+
+    <label>Từ ngày:</label>
+    <input type="date" id="fromDate">
+    <label>Đến ngày:</label>
+    <input type="date" id="toDate">
+
+    <label>Từ giờ:</label>
+    <input type="time" id="fromTime" value="00:00">
+    <label>Đến giờ:</label>
+    <input type="time" id="toTime" value="23:59">
+
+    <label>Tìm theo:</label>
+    <select id="searchType">
+      <option value="cid">📞 CID (Khách hàng)</option>
+      <option value="ext">📟 Máy nhánh</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="Nhập từ khóa...">
+
+    <button id="resetBtn">🔄 Reset lọc</button>
+    <button id="viewReportBtn">📊 Xem thống kê</button>
+  </div>
+
+  <div id="totalCalls" style="font-size:18px; font-weight:bold; margin-bottom:10px; text-align:right; color:#333;">
+    Tổng cuộc gọi: 0
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>📞 CID (Khách hàng)</th>
+        <th>📟 Máy nhánh</th>
+        <th>🛣️ Hướng gọi</th>
+        <th>🕐 Thời gian</th>
+        <th>📶 Trạng thái</th>
+        <th>📝 Ghi chú</th>
+      </tr>
+    </thead>
+    <tbody id="call-events"></tbody>
+  </table>
+</body>
+</html>

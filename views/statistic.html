@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Báo cáo cuộc gọi tổng hợp</title>
+  <link rel="stylesheet" href="/css/report.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/js/extNames.js"></script>
+  <script src="/js/statistic.js" defer></script>
+</head>
+<body>
+  <h2>📊 Thống kê cuộc gọi tổng hợp từ dữ liệu Fulltime</h2>
+
+  <div class="controls">
+    <label for="fromDate">Từ ngày:</label>
+    <input type="date" id="fromDate" max="">
+    <label for="toDate">Đến ngày:</label>
+    <input type="date" id="toDate" max="">
+    <label>
+      <input type="checkbox" id="skipWeekend" checked>
+      Bỏ qua Thứ 7 & CN
+    </label>
+    <button onclick="loadReport()">Xem thống kê</button>
+  </div>
+
+  <div class="controls">
+    <label for="holidayInput">Ngày lễ:</label>
+    <input type="date" id="holidayInput">
+    <button onclick="addHoliday()">Thêm</button>
+  </div>
+
+  <div class="controls">
+    <ul id="holidayList"></ul>
+  </div>
+
+  <div id="tablesContainer">
+    <table id="reportTable" aria-label="Bảng báo cáo cuộc gọi"></table>
+    <table id="extTable" aria-label="Bảng tổng hợp cuộc gọi theo máy nhánh">
+      <thead>
+        <tr>
+          <th>Máy nhánh</th>
+          <th>Số cuộc gọi</th>
+        </tr>
+      </thead>
+      <tbody id="extTableBody"></tbody>
+    </table>
+  </div>
+
+  <div id="chartsContainer">
+    <canvas id="pieChart" width="400" height="300" aria-label="Biểu đồ tròn tỷ lệ trả lời"></canvas>
+    <canvas id="barChart" width="400" height="300" aria-label="Biểu đồ cột thống kê chi tiết"></canvas>
+  </div>
+</body>
+</html>

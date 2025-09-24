@@ -24,8 +24,7 @@ app.use(session({
 
 // Middleware
 app.use(bodyParser.json());
-app.use(express.static('public'));
-app.use(express.static(__dirname));
+app.use(express.static('public')); // Phục vụ tài nguyên tĩnh từ public
 
 // Áp dụng middleware xác thực, bỏ qua cho /cloudfone-webhook và /login
 app.use((req, res, next) => {
