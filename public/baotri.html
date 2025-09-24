@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website đang bảo trì</title>
+  <style>
+    /* Reset cơ bản */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body, html {
+      height: 100%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .container {
+      padding: 30px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 15px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      animation: fadeIn 1.5s ease-in-out;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      position: relative;
+      animation: bounce 2s infinite;
+    }
+
+    h1::after {
+      content: "🛠️";
+      display: inline-block;
+      margin-left: 10px;
+      animation: rotate 2s linear infinite;
+    }
+
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .countdown {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 10px;
+      color: #ffdd57;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(-20px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0);}
+      50% { transform: translateY(-10px);}
+    }
+
+    @keyframes rotate {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 2.2rem;
+      }
+      p {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Đang bảo trì</h1>
+    <p>Chúng tôi đang cập nhật hệ thống để mang đến trải nghiệm tốt hơn. Vui lòng quay lại sau.</p>
+    <p class="countdown" id="countdown">Thời gian dự kiến: 00:00:00</p>
+  </div>
+
+  <script>
+    // Ví dụ countdown 1 giờ
+    let targetTime = new Date().getTime() + 1800 * 1000; // 1 giờ từ bây giờ
+
+    function updateCountdown() {
+      let now = new Date().getTime();
+      let distance = targetTime - now;
+
+      if (distance < 0) {
+        document.getElementById('countdown').innerText = "Đã xong bảo trì!";
+        clearInterval(timer);
+        return;
+      }
+
+      let hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      let minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      let seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      document.getElementById('countdown').innerText =
+        `Thời gian dự kiến: ${hours.toString().padStart(2,'0')}:
+        ${minutes.toString().padStart(2,'0')}:
+        ${seconds.toString().padStart(2,'0')}`;
+    }
+
+    let timer = setInterval(updateCountdown, 1000);
+    updateCountdown();
+  </script>
+</body>
+</html>

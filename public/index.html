@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Call Events Viewer</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+
+
+
+/* Nhấp nháy cho trạng thái Missed/Not answered */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.status.missed, .status.not-answered {
+  animation: pulse 3.0s infinite;
+}
+
+/* Nội bộ màu cam + hiệu ứng rung */
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+.dir-internal {
+  color: orange;
+  font-weight: bold;
+  animation: shake 0.4s;
+}
+
+  
+tbody tr {
+  transition: background 0.25s ease;
+}
+tbody tr:hover {
+  background: #f0f8ff; /* xanh nhạt */
+  cursor: pointer;
+}
+  
+  
+ <!-- <!-- /* Lấp lánh cho chữ "Đã trả lời" */ -->
+<!-- .status.answered { -->
+  <!-- color: #28a745; /* xanh lá */ -->
+  <!-- font-weight: bold; -->
+  <!-- position: relative; -->
+<!-- } -->
+
+<!-- /* Thêm 3 sao */ -->
+<!-- .status.answered::after { -->
+  <!-- content: " ✦ ✧ ✩"; -->
+  <!-- color: gold; -->
+  <!-- font-size: 12px; -->
+  <!-- margin-left: 5px; -->
+  <!-- animation: twinkle 2s infinite; -->
+<!-- } -->
+
+<!-- /* Hiệu ứng lấp lánh */ -->
+<!-- @keyframes twinkle { -->
+  <!-- 0%, 100% { opacity: 1; text-shadow: 0 0 4px gold; } -->
+  <!-- 50% { opacity: 0.5; text-shadow: 0 0 8px yellow; } -->
+<!-- } --> -->
+
+  
+  
+    body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+    h1 { text-align: center; color: #333; }
+    .controls { text-align: center; margin-bottom: 15px; }
+    select, input[type="date"], input[type="time"], button, input[type="text"] {
+      padding: 8px; font-size: 16px; margin: 0 5px; border-radius: 4px; border: 1px solid #ccc;
+    }
+    button { cursor: pointer; background-color: #007bff; color: white; border: none; }
+    button:hover { background-color: #0056b3; }
+    table {
+      width: 100%; border-collapse: collapse; background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td { padding: 12px 15px; border: 1px solid #ddd; text-align: left; }
+    th { background-color: #007bff; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    .status { font-weight: bold; }
+    .status.answered { color: green; }
+    .status.missed { color: red; }
+    .status.unknown { color: gray; }
+    .status.not-answered { color: orange; }
+    .dir-inbound { color: blue; font-weight: bold; }
+    .dir-outbound { color: purple; font-weight: bold; }
+	.dir-internal { color: orange; font-weight: bold; } 
+	
+	
+	td.note-cell {
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  max-width: 250px;
+}
+  </style>
+</head>
+<body>
+  <h1>Sự kiện cuộc gọi từ CloudFone (Realtime)</h1>
+
+  <div class="controls">
+    <label>Lọc theo trạng thái:</label>
+    <select id="filter">
+<option value="all">🌐 Tất cả</option>
+  <option value="answered">📞 Đã nhấc máy</option>
+  <option value="not-answered">🔔 Không bắt máy</option>
+  <option value="missed">❌ Cuộc gọi nhỡ</option>
+  <option value="inbound">📥 Gọi đến</option>
+  <option value="outbound">📤 Gọi đi</option>
+  <option value="internal">🏢 Nội bộ</option>
+  <option value="unknown">❓ Không rõ</option>
+    </select>
+
+    <label>Từ ngày:</label>
+    <input type="date" id="fromDate">
+    <label>Đến ngày:</label>
+    <input type="date" id="toDate">
+
+    <label>Từ giờ:</label>
+    <input type="time" id="fromTime" value="00:00">
+    <label>Đến giờ:</label>
+    <input type="time" id="toTime" value="23:59">
+
+	<label>Tìm theo:</label>
+	<select id="searchType">
+	  <option value="cid">📞 CID (Khách hàng)</option>
+	  <option value="ext">📟 Máy nhánh</option>
+	</select>
+	<input type="text" id="searchInput" placeholder="Nhập từ khóa...">
+
+    <button id="resetBtn">🔄 Reset lọc</button>
+    <button id="viewReportBtn">📊 Xem thống kê</button>
+  </div>
+
+<div id="totalCalls" style="font-size:18px; font-weight:bold; margin-bottom:10px; text-align:right; color:#333;">
+    Tổng cuộc gọi: 0
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>📞 CID (Khách hàng)</th>
+        <th>📟 Máy nhánh</th>
+        <th>🛣️ Hướng gọi</th>
+        <th>🕐 Thời gian</th>
+        <th>📶 Trạng thái</th>
+        <th>📝 Ghi chú</th>
+      </tr>
+    </thead>
+    <tbody id="call-events"></tbody>
+  </table>
+
+  <script>
+    const extNames = {
+      "100": "Hoàng Vũ Tài", "101": "Lê Công Hậu", "102": "Đức Thiện",
+      "165": "Quỳnh Anh", "166": "Hương Sen", "168": "Thái Hằng",
+      "170": "Nguyễn Thị Anh Đào", "200": "Hoàng Vũ Tài",
+      "201": "Lê Công Hậu", "208": "Đức Thiện", "4000": "Đức Thiện"
+    };
+
+    const socket = io();
+    const table = document.getElementById('call-events');
+    const filterSelect = document.getElementById('filter');
+    const fromDate = document.getElementById('fromDate');
+    const toDate = document.getElementById('toDate');
+    const fromTime = document.getElementById('fromTime');
+    const toTime = document.getElementById('toTime');
+    const searchTypeSelect = document.getElementById('searchType');
+	const searchInput = document.getElementById('searchInput');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let callEvents = [];
+
+    const getStatusClass = stt => {
+      stt = (stt || '').toLowerCase().trim();
+      if (/nhấc máy|trả lời|answered|completed|connect|connected|answered call/.test(stt)) return 'answered';
+      if (/không nhấc máy|không bắt máy|hủy|huỷ|no answer|cancel|cancelled|declined|busy|rejected|failed/.test(stt)) return 'not-answered';
+      if (/nhỡ|missed|missed call/.test(stt)) return 'missed';
+      return 'unknown';
+    };
+
+    const formatTime = isoTime => new Date(isoTime).toLocaleString('vi-VN');
+    const formatDuration = sec => {
+      if (!sec && sec !== 0) return '';
+      sec = Math.floor(sec);
+      if (sec < 60) return `${sec} giây`;
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m} phút${s > 0 ? ` ${s} giây` : ''}`;
+    };
+
+const renderNoteCell = data => {
+  const statusClass = data.statusClass || getStatusClass(data.status);
+  if (['missed', 'not-answered'].includes(statusClass)) {
+    if (data.handled) return `✅ ${data.note || 'Đã xử lý'}`;
+    
+    const reasons = [
+      "Không liên lạc được",
+      "Khách từ chối",
+      "Lý do khác"
+    ];
+
+    let options = `<option value="">-- Chọn lý do --</option>`;
+    reasons.forEach(r => {
+      options += `<option value="${r}" ${data.note === r ? "selected" : ""}>${r}</option>`;
+    });
+
+    return `
+      <select style="width:220px" onchange="toggleOtherInput(this)">
+        ${options}
+      </select>
+      <input type="text" placeholder="Nhập lý do khác..." style="width:200px; display:none; margin-left:5px"/>
+      <button onclick="saveNote('${data.cid}', '${data.ext}', '${data.time}', this)">💾 Lưu</button>
+    `;
+  }
+  return '';
+};
+
+// Hiện/ẩn textbox khi chọn "Lý do khác"
+window.toggleOtherInput = function(selectEl) {
+  const input = selectEl.nextElementSibling;
+  if (selectEl.value === "Lý do khác") {
+    input.style.display = "inline-block";
+  } else {
+    input.style.display = "none";
+    input.value = "";
+  }
+};
+
+window.saveNote = (cid, ext, time, btn) => {
+  const select = btn.previousElementSibling.previousElementSibling;
+  const input = btn.previousElementSibling;
+  let noteValue = select.value;
+
+  if (!noteValue) return alert('Vui lòng chọn lý do!');
+  if (noteValue === "Lý do khác") {
+    if (!input.value.trim()) return alert('Vui lòng nhập lý do khác!');
+    noteValue = input.value.trim();
+  }
+
+  fetch('/mark-handled', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cid, ext, time, note: noteValue })
+  })
+  .then(res => res.json())
+  .then(resp => {
+    if (resp.success) {
+      btn.parentElement.innerHTML = `✅ ${noteValue}`;
+      const event = callEvents.find(e => e.cid === cid && e.ext === ext && e.time === time);
+      if (event) { event.handled = true; event.note = noteValue; }
+    }
+  });
+};
+
+
+
+function getExtLabel(data) {
+  const ext = (data.Ext || data.ext || "").toUpperCase();
+  const queue = data.Queue || data.queue || "";
+  const billBy = data.BillSecBy || "";
+
+  // Máy nhánh hợp lệ
+  if (ext && ext !== "N/A" && extNames[ext]) {
+    return `${ext} - ${extNames[ext]}`;
+  }
+
+  // IVR
+  if (ext && /^IVR/i.test(ext)) {
+    return `📢 Lời chào (${ext})`;
+  }
+
+  // Máy nhánh chưa map nhưng hợp lệ
+  if (ext && ext !== "N/A") {
+    return ext;
+  }
+
+  // Queue
+  if (queue) return `🛑 Hàng chờ (${queue})`;
+  if (billBy && /^queue$/i.test(billBy)) return `🛑 Hàng chờ (N/A)`;
+
+  // Không có gì → Ngoài giờ
+  return "⏰ Ngoài giờ";
+}
+
+
+const createRow = data => {
+  const statusClass = data.statusClass || getStatusClass(data.status);
+  const extDisplay = getExtLabel(data);
+
+  // Xác định hướng gọi
+  let dirLabel = 'Không rõ';
+  let dirClass = '';
+  if (extNames[data.cid]) {
+    // CID cũng là máy nhánh nội bộ
+    dirLabel = '🏢 Nội bộ';
+    dirClass = 'dir-internal';
+  } else if (data.dir?.toLowerCase() === 'inbound') {
+    dirLabel = '📥 Gọi đến';
+    dirClass = 'dir-inbound';
+  } else if (data.dir?.toLowerCase() === 'outbound') {
+    dirLabel = '📤 Gọi đi';
+    dirClass = 'dir-outbound';
+  }
+
+  const row = document.createElement('tr');
+  row.dataset.statusClass = statusClass;
+  row.dataset.time = data.time;
+  row.classList.add('new-row');
+  row.innerHTML = `
+    <td>${data.cid || 'Không rõ'}</td>
+    <td>${extDisplay}</td>
+    <td class="${dirClass}">${dirLabel}</td>
+    <td>${formatTime(data.time)}${statusClass === 'answered' && data.duration ? ` (${formatDuration(data.duration)})` : ''}</td>
+    <td class="status ${statusClass}">${data.status || '❓ Không rõ'}</td>
+      <td class="note-cell">${renderNoteCell(data)}</td>
+  `;
+  return row;
+};
+
+	
+	
+	
+	
+	
+
+    const renderTable = () => {
+      const selected = filterSelect.value;
+      const from = fromDate.value ? new Date(fromDate.value) : null;
+      const to = toDate.value ? new Date(toDate.value + 'T23:59:59') : null;
+      const [fromH, fromM] = fromTime.value.split(':').map(Number);
+      const [toH, toM] = toTime.value.split(':').map(Number);
+
+
+      table.innerHTML = '';
+	  
+const latestByCaller = {};
+const priority = { answered: 3, 'not-answered': 2, missed: 1, unknown: 0 };
+
+// Ngưỡng thời gian để coi là cùng nhóm (9 giây)
+const GROUP_THRESHOLD = 9000; 
+
+for (let i = 0; i < callEvents.length; i++) {
+  const item = callEvents[i];
+  // Gom nhóm theo CID + ngày (YYYY-MM-DD) để không mất cuộc gọi cũ
+const dateKey = new Date(item.time).toISOString().split('T')[0]; 
+const key = item.cid + "_" + dateKey;
+
+   ///const key = item.cid;
+  const statusClass = item.statusClass || getStatusClass(item.status);
+
+  if (!latestByCaller[key]) {
+    latestByCaller[key] = { ...item, statusClass };
+  } else {
+    const currentItem = latestByCaller[key];
+    const currentTime = new Date(currentItem.time).getTime();
+    const newTime = new Date(item.time).getTime();
+
+    if (Math.abs(newTime - currentTime) <= GROUP_THRESHOLD) {
+      // Cùng nhóm → so sánh priority
+      const oldPriority = priority[currentItem.statusClass] || 0;
+      const newPriority = priority[statusClass] || 0;
+      if (newPriority > oldPriority) {
+        latestByCaller[key] = { ...item, statusClass };
+      }
+    } else if (newTime > currentTime) {
+      // Khác nhóm và mới hơn → ghi đè
+      latestByCaller[key] = { ...item, statusClass };
+    }
+  }
+}
+
+// Sắp xếp theo thời gian giảm dần
+const sortedItems = Object.values(latestByCaller).sort((a, b) => {
+  return new Date(b.time) - new Date(a.time);
+});
+
+
+  let count = 0;
+  sortedItems.forEach(item => {
+    const itemDate = new Date(item.time);
+	
+	let matchStatus = true;
+
+if (selected !== 'all') {
+  if (['answered', 'not-answered', 'missed', 'unknown'].includes(selected)) {
+    matchStatus = item.statusClass === selected;
+  } else if (selected === 'inbound' || selected === 'outbound' || selected === 'internal') {
+    if (selected === 'internal') {
+      matchStatus = extNames[item.cid] && item.ext; // CID là máy nhánh + có ext
+    } else {
+      matchStatus = item.dir && item.dir.toLowerCase() === selected;
+    }
+  }
+}
+
+
+    const matchDate = (!from || itemDate >= from) && (!to || itemDate <= to);
+    const matchTime = 
+      (itemDate.getHours() > fromH || (itemDate.getHours() === fromH && itemDate.getMinutes() >= fromM)) &&
+      (itemDate.getHours() < toH || (itemDate.getHours() === toH && itemDate.getMinutes() <= toM));
+
+const searchType = searchTypeSelect.value;
+const keyword = searchInput.value.trim().toLowerCase();
+
+let matchSearch = true;
+if (keyword) {
+  if (searchType === "cid") {
+    matchSearch = item.cid && item.cid.toLowerCase().includes(keyword);
+  } else if (searchType === "ext") {
+    matchSearch = item.ext && item.ext.toLowerCase().includes(keyword);
+  }
+}
+
+if (matchStatus && matchDate && matchTime && matchSearch) {
+  table.appendChild(createRow(item));
+  count++;
+}
+  });
+
+  document.getElementById('totalCalls').textContent = `Tổng cuộc gọi: ${count}`;
+};
+
+    const getTodayDateString = () => {
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    };
+
+    resetBtn.addEventListener('click', () => {
+      filterSelect.value = 'all';
+      fromDate.value = toDate.value = getTodayDateString();
+      fromTime.value = "00:00";
+      toTime.value = "23:59";
+	  searchTypeSelect.value = "cid";   // reset về CID mặc định
+      searchInput.value = "";           // clear ô tìm kiếm
+      renderTable();
+    });
+
+    [filterSelect, fromDate, toDate, fromTime, toTime].forEach(el => el.addEventListener('change', renderTable));
+    searchTypeSelect.addEventListener('change', renderTable);
+	searchInput.addEventListener('input', renderTable);
+
+    fromDate.value = toDate.value = getTodayDateString();
+
+    fetch('/logs')
+      .then(res => res.json())
+      .then(data => {
+        callEvents = data.map(ev => ({ ...ev, statusClass: ev.statusClass || getStatusClass(ev.status) }));
+        renderTable();
+      });
+
+    socket.on('call-event', data => {
+      data.statusClass = data.statusClass || getStatusClass(data.status);
+      callEvents.push(data);
+      renderTable();
+    });
+
+    document.getElementById('viewReportBtn').addEventListener('click', () => {
+      window.open('statistic.html', '_blank');
+    });
+  </script>
+</body>
+</html>
+<script>
+  document.addEventListener("contextmenu", e => e.preventDefault()); // chặn chuột phải
+
+  document.addEventListener("keydown", e => {
+    if (e.ctrlKey && (e.key === "u" || e.key === "U" || e.key === "s" || e.key === "S")) {
+      e.preventDefault();
+    }
+    if (e.key === "F12") {
+      e.preventDefault();
+    }
+  });
+</script>
