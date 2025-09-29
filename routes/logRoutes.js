@@ -1,33 +1,25 @@
 const express = require('express');
 const { getCallStatus } = require('../utils/callStatus');
-const { saveLogs, getCallEvents, calcTotalDuration } = require('../utils/logUtils');
+const { saveLogs, getCallEvents, calcTotalDuration, updateHandled } = require('../utils/logUtils');
 const router = express.Router();
 
-router.get('/logs', (req, res) => {
-  res.json(getCallEvents());
+router.get('/logs', async (req, res) => {
+  const events = await getCallEvents();
+  res.json(events);
 });
 
-router.post('/mark-handled', (req, res) => {
+router.post('/mark-handled', async (req, res) => {
   const { cid, ext, time, note } = req.body;
-  const callEvents = getCallEvents();
-  const idx = callEvents.findIndex(
-    e => e.cid === cid && e.ext === ext && e.time === time
-  );
-
-  if (idx !== -1) {
-    callEvents[idx].handled = true;
-    callEvents[idx].note = note || '';
-    saveLogs((err) => {
-      if (err) return res.json({ success: false });
-      console.log(`📝 Đánh dấu đã xử lý: ${cid} - ${ext} - ${time} (Ghi chú: ${note || 'Không có'})`);
-      res.json({ success: true });
-    });
+  const success = await updateHandled(cid, ext, time, note);
+  if (success) {
+    console.log(`📝 Đánh dấu đã xử lý: ${cid} - ${ext} - ${time} (Ghi chú: ${note || 'Không có'})`);
+    res.json({ success: true });
   } else {
     res.json({ success: false, message: 'Không tìm thấy bản ghi' });
   }
 });
 
-router.post('/cloudfone-webhook', (req, res) => {
+router.post('/cloudfone-webhook', async (req, res) => {
   const event = req.body;
   console.log('📞 Nhận sự kiện CloudFone:', event);
 
@@ -57,37 +49,12 @@ router.post('/cloudfone-webhook', (req, res) => {
     duration,
     ivr: event.IVR || '',
     queue: event.Queue || '',
-    billBy: event.BillSecBy || ''
+    billBy: event.BillSecBy || '',
+    handled: false,
+    note: ''
   };
 
-  const callEvents = getCallEvents();
-  const idx = callEvents.findIndex(e =>
-    e.cid === callData.cid &&
-    e.ext === callData.ext &&
-    e.time === callData.time
-  );
-
-  if (idx !== -1) {
-    callEvents[idx] = {
-      ...callEvents[idx],
-      ...callData,
-      status: (newStatus !== '❔ Không rõ') ? newStatus : callEvents[idx].status
-    };
-  } else {
-    callEvents.push({
-      ...callData,
-      handled: false,
-      note: ''
-    });
-  }
-
-  saveLogs((err) => {
-    if (!err) {
-      const io = require('socket.io').sockets;
-      io.emit('call-event', callData);
-      io.emit('total-duration', calcTotalDuration());
-    }
-  });
+  await saveLogs(callData);
 
   switch (event.Event) {
     case 'show':

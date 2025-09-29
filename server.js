@@ -3,16 +3,26 @@ const http = require('http');
 const bodyParser = require('body-parser');
 const socketIo = require('socket.io');
 const session = require('express-session');
-const { PORT, SESSION_SECRET } = require('./config/config');
+const path = require('path');
+const mongoose = require('mongoose');
+const { PORT, SESSION_SECRET, MONGO_URI } = require('./config/config');
 const authMiddleware = require('./middleware/authMiddleware');
 const authRoutes = require('./routes/authRoutes');
 const logRoutes = require('./routes/logRoutes');
 const reportRoutes = require('./routes/reportRoutes');
-const { initSocket } = require('./utils/logUtils');
+const { initSocket, initLogs } = require('./utils/logUtils');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+
+// Kết nối MongoDB
+mongoose.connect(MONGO_URI)
+  .then(() => {
+    console.log('✅ Kết nối MongoDB thành công');
+    initLogs();
+  })
+  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
 
 // Cấu hình session
 app.use(session({
@@ -24,7 +34,7 @@ app.use(session({
 
 // Middleware
 app.use(bodyParser.json());
-app.use(express.static('public')); // Phục vụ tài nguyên tĩnh từ public
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Áp dụng middleware xác thực, bỏ qua cho /cloudfone-webhook và /login
 app.use((req, res, next) => {
@@ -44,5 +54,5 @@ initSocket(io);
 
 // Khởi động server
 server.listen(PORT, () => {
-  console.log(`✅ Server chạy tại http://localhost:${PORT}/cloudfone-webhook`);
+  console.log(`✅ Server chạy tại http://10.0.0.26:${PORT}/cloudfone-webhook`);
 });

@@ -13,6 +13,7 @@ let callEvents = [];
 let pieChart = null;
 let barChart = null;
 
+const extNames = window.extNames;
 
 function getStatusClass(stt) {
   stt = (stt || '').toLowerCase().trim();
@@ -118,7 +119,7 @@ function renderTable(data, from, to) {
 
 function renderExtTable(events) {
   const extCount = {};
-  Object.keys(window.extNames).forEach(ext => extCount[ext] = 0);
+  Object.keys(extNames).forEach(ext => extCount[ext] = 0);
 
   const priority = { answered: 3, notAnswered: 2, missed: 1, unknown: 0 };
   const latestByCID = {};
@@ -159,7 +160,7 @@ function renderExtTable(events) {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${ext} - ${window.extNames[ext]} ${star}</td>
+      <td>${ext} - ${extNames[ext]} ${star}</td>
       <td>${count}</td>
     `;
     tbody.appendChild(tr);
